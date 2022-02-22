@@ -1,0 +1,193 @@
+---
+title: "Tuango RFM HW"
+author: "Rainy Chen"
+date: "2/21/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(flextable)
+library(gmodels)
+library(Hmisc)
+library(statar)
+library(ggpubr)
+
+TG <- read.csv("/Users/rarainy/Documents/Spring2022/MKT 500T/m5/Tuango_RFM.csv")
+```
+  
+## Q1.What percentage of customers responded (i.e. bought anything) after the push message?
+```{r}
+CrossTable(TG$buyer, digits=4)
+```
+3.1% of customers responded after the push message.
+
+## Q2.Of those who bought, what was the average spending?
+```{r}
+mean(TG$ordersize[TG$buyer==1])
+```
+Average spending is about 202 RMB. 
+
+## Q3.Create quintile variables for recency, frequency and monetary. 
+```{r}
+TG_Copy <- TG %>% 
+  mutate(rec_quin=xtile(recency, 5),
+         freq_quin=xtile(frequency, 5),
+         mv_quin=xtile(monetary, 5))
+head(TG_Copy %>% select(userid, buyer, recency, frequency, 
+                    monetary, rec_quin, freq_quin, mv_quin))
+```
+
+## Q4.Create a bar chart showing the response rate (i.e., the proportion of customers who bought something) to this deal by recency quintile.
+```{r}
+avg_resp_rate_rec <- TG_Copy %>% group_by(rec_quin) %>% 
+  summarise(avg_resp_rate=mean(buyer), .groups="drop")
+avg_resp_rate_rec
+```
+```{r}
+bar_avg_resp_rate_rec <- 
+  ggplot(data=avg_resp_rate_rec, 
+         aes(x = rec_quin, y = avg_resp_rate)) + 
+  labs(x="Recency Quintile", y="Average Response Rate") + 
+  geom_bar(stat="identity", width=0.5)
+bar_avg_resp_rate_rec
+```
+
+## Q5.Show the response rate to this deal by frequency quintile. 
+```{r}
+avg_resp_rate_freq <- TG_Copy %>% 
+  group_by(freq_quin) %>% 
+  summarise(avg_resp_rate=mean(buyer), .groups="drop")
+avg_resp_rate_freq
+```
+```{r}
+bar_avg_resp_rate_freq <- 
+  ggplot(data=avg_resp_rate_freq, 
+         aes(x = freq_quin, y = avg_resp_rate)) + 
+  labs(x="Frequency Quintile", y="Average Response Rate") + 
+  geom_bar(stat="identity", width=0.5)
+bar_avg_resp_rate_freq
+```
+
+## Q6.Show the response rate to this deal by monetary quintile.
+```{r}
+avg_resp_rate_mv <- TG_Copy %>% group_by(mv_quin) %>%
+  summarise(avg_resp_rate=mean(buyer), .groups="drop")
+avg_resp_rate_mv
+# The bar chart
+bar_avg_resp_rate_mv <- 
+  ggplot(data=avg_resp_rate_mv, 
+         aes(x = mv_quin, y = avg_resp_rate)) + 
+  labs(x="Monetary Quintile", y="Average Response Rate") + 
+  geom_bar(stat="identity", width=0.5)
+bar_avg_resp_rate_mv
+```
+
+## Q7.Repeat questions 4-6 using only those customers who placed an order after the push message, i.e. create bar charts showing the average spending (in RMB) spent by recency, frequency and monetary quintile. 
+```{r}
+#recency
+avg_spend_rec <- TG_Copy %>% group_by(rec_quin) %>% 
+  summarise(avg_spend=mean(ordersize[buyer == 1]), .groups="drop")
+avg_spend_rec
+
+#bar chart 
+bar_avg_spend_rec <- 
+  ggplot(data=avg_spend_rec, 
+         aes(x = rec_quin, y = avg_spend)) + 
+  labs(x="Rencency Quintile", y="Average Spending") + 
+  geom_bar(stat="identity", width=0.5)
+bar_avg_spend_rec
+```
+```{r}
+#frequency 
+avg_spend_freq <- TG_Copy %>% 
+  group_by(freq_quin) %>% 
+  summarise(avg_spend=mean(ordersize[buyer == 1]), .groups="drop")
+avg_spend_freq
+
+#bar chart 
+bar_avg_spend_freq <- 
+  ggplot(data=avg_spend_freq, 
+         aes(x = freq_quin, y = avg_spend)) + 
+  labs(x="Frequency Quintile", y="Average Spending") + 
+  geom_bar(stat="identity", width=0.5)
+bar_avg_spend_freq
+```
+```{r}
+#monetary 
+avg_spend_mv <- TG_Copy %>% group_by(mv_quin) %>%
+  summarise(avg_resp_rate=mean(ordersize[buyer == 1]), .groups="drop")
+avg_spend_mv
+
+#bar chart
+bar_avg_spend_mv <- 
+  ggplot(data=avg_spend_mv, 
+         aes(x = mv_quin, y = avg_resp_rate)) + 
+  labs(x="Monetary Quintile", y="Average Response Rate") + 
+  geom_bar(stat="identity", width=0.5)
+bar_avg_spend_mv
+```
+
+## Q8. What do the above bar charts reveal about the likelihood of response and the size of the order across the different recency, frequency, and monetary quintiles?
+Overall, the more recent, frequent purchases, and more average spending per deal a customer has, the more it responds. For customers who bought the deal, there is no clear trend on RFM. 
+
+## Q9.What is the breakeven response rate?
+```{r}
+#marginal cost/average sales revenue = average break-even response rate
+breakeven=1.6/(0.5*mean(TG$ordersize[TG$buyer==1]))
+breakeven
+```
+Average break-even response rate is 1.6%.
+
+## Q10.What is the projected (a) profit in RMB, (b) return on marketing expenditures if you offer the deal to all remaining 264,841 customers.
+```{r}
+#(a) profit=[(total customer*average response rate)*average spending]*50% of sales revenue as fee - marginal cost*total customer
+profit=264841*0.031*202.3565*0.5-1.6*264841
+profit
+
+#(b) return on marketing cost=profit/(marginal cost*total customer)
+return=profit/(1.6*264841)
+return
+```
+
+## Q11. Consider offering the deal only to those of the 264,841 customers in RFM cells (using the sequential n-tiles approach, coded as the rfm1 variable) with a response rate that is equal to or greater than the breakeven response rate.
+```{r}
+#number of customers belonging to profitable cells
+TG_Copy <- TG_Copy %>% 
+  group_by(rfm1) %>% 
+  mutate(avg_resp_rate_rfm=mean(buyer)) %>% ungroup()
+TG_Copy <- TG_Copy %>%  mutate(pushto = avg_resp_rate_rfm > breakeven)
+
+rfm1_group_size <- TG_Copy[TG_Copy$pushto,] %>% group_by(rfm1) %>% 
+  summarise(group_size_rfm1 = n(), .groups="drop") 
+
+#number of buyers belonging to profitable cells
+rfm1_buyer_size <- TG_Copy[TG_Copy$pushto&TG_Copy$buyer==1,] %>% group_by(rfm1) %>% 
+  summarise(buyer_size_rfm1 = n(), avg_revenue_rfm1 = mean(ordersize)) 
+```
+
+```{r}
+# profit
+rfm1_profit <- left_join(rfm1_group_size, rfm1_buyer_size)
+
+# Calculated using average revenue in each rfm group
+rfm1_profit$profit_rfm1 = (rfm1_profit$avg_revenue_rfm1 * rfm1_profit$buyer_size_rfm1 * 0.5 - 1.6 * rfm1_profit$group_size_rfm1)   * (264841 / 13939)
+rfm1_profit$return_rfm1 = rfm1_profit$profit_rfm1 / (1.6 * rfm1_profit$group_size_rfm1)
+
+rfm1_profit[,c("rfm1", "profit_rfm1", "return_rfm1")]
+sum(rfm1_profit$profit_rfm1) - profit
+```
+
+## Q12.What do you notice about the rfm1 and rfm2 values? That is – do the two approaches generally yield the same RFM index for any given customer? What do you see as the pros and cons of the two approaches 
+```{r}
+TG_Copy <- TG_Copy %>% mutate(same_rfm = rfm1==rfm2) 
+CrossTable(TG_Copy$same_rfm)
+```
+There are about 87.2% of same RFM index. Sequential RFM pros is that it provides a more even distribution RFM group; cons is that the index is hard to interpret since frequency and monetary rank dependent on recency rank. Independent RFM pros is that it is easy to interpret, but may provide empty bin because of uneven distribution. 
+
+
+
+
+
+
